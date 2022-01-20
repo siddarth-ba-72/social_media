@@ -87,6 +87,25 @@ exports.loginUser = async (req, res) => {
 	}
 };
 
+exports.logoutUser = async (req, res) => {
+	try {
+
+		res.status(200).cookie("token", null, {
+			httpOnly: true,
+			expires: new Date(Date.now()),
+		}).json({
+			success: true,
+			message: 'User logged out',
+		});
+
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: error.message
+		});
+	}
+};
+
 exports.followOrUnfollowUser = async (req, res) => {
 	try {
 
@@ -132,3 +151,69 @@ exports.followOrUnfollowUser = async (req, res) => {
 		});
 	}
 };
+
+exports.changePassword = async (req, res) => {
+	try {
+
+		const user = await User.findById(req.user._id).select("+password");
+		const { oldPassword, newPassword } = req.body;
+		if (!oldPassword || !newPassword) {
+			return res.status(400).json({
+				success: false,
+				message: 'Please provide both old and new password'
+			});
+		}
+
+		const validatePassword = await user.authenticatePasswords(oldPassword);
+		if (!validatePassword) {
+			return res.status(400).json({
+				success: false,
+				message: 'Incorrect password'
+			});
+		}
+
+		user.password = newPassword;
+		await user.save();
+
+		res.status(200).json({
+			success: true,
+			message: 'Password changed',
+		});
+
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: error.message
+		});
+	}
+};
+
+exports.updateUserProfile = async (req, res) => {
+	try {
+
+		const user = await User.findById(req.user._id);
+		const { name, email } = req.body;
+
+		if (name) {
+			user.name = name;
+		}
+		if (email) {
+			user.email = email;
+		}
+
+		await user.save();
+
+		res.status(200).json({
+			success: true,
+			message: 'User profile updated',
+			user,
+		});
+
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: error.message
+		});
+	}
+}
+
