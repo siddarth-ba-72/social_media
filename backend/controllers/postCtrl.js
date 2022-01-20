@@ -30,3 +30,42 @@ exports.createPost = async (req, res) => {
 		});
 	};
 };
+
+exports.likeOrUnlikePost = async (req, res) => {
+	try {
+
+		const post = await Post.findById(req.params.id);
+		if (!post) {
+			return res.status(404).json({
+				success: false,
+				message: "Post not found"
+			});
+		}
+
+		if (post.likes.includes(req.user._id)) {
+			const idx = post.likes.indexOf(req.user._id);
+			post.likes.splice(idx, 1);
+			await post.save();
+			return res.status(200).json({
+				success: true,
+				message: "Post unliked",
+				post,
+			});
+		}
+		else {
+			post.likes.push(req.user._id);
+			await post.save();
+			return res.status(200).json({
+				success: true,
+				message: "Post liked",
+				post,
+			});
+		}
+
+	} catch (error) {
+		res.status(500).json({
+			status: false,
+			message: error.message
+		});
+	}
+};
