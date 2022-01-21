@@ -1,4 +1,5 @@
 const User = require('../schemas/userModel.js');
+const Post = require('../schemas/postModel.js');
 
 exports.registerUser = async (req, res) => {
 	try {
@@ -215,5 +216,35 @@ exports.updateUserProfile = async (req, res) => {
 			message: error.message
 		});
 	}
-}
+};
+
+exports.deleteMyAccount = async (req, res) => {
+	try {
+
+		const user = await User.findById(req.user._id);
+		const posts = user.posts;
+
+		await user.remove();
+		res.cookie("token", null, {
+			httpOnly: true,
+			expires: new Date(Date.now()),
+		});
+
+		for (let i = 0; i < posts.length; i++) {
+			const post = await Post.findById(posts[i]);
+			await post.remove();
+		}
+
+		res.status(200).json({
+			success: true,
+			message: 'User account deleted',
+		});
+
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: error.message
+		});
+	}
+};
 
