@@ -166,3 +166,102 @@ exports.getPostsOfFollowing = async (req, res) => {
 		});
 	}
 };
+
+exports.addComment = async (req, res) => {
+	try {
+
+		const post = await Post.findById(req.params.id);
+		if (!post) {
+			return res.status(404).json({
+				success: false,
+				message: "Post not found"
+			});
+		}
+
+		let commentIdx = -1;
+		post.comments.forEach((item, index) => {
+			if (item.user.toString() === req.user._id.toString()) {
+				commentIdx = index;
+			}
+		});
+
+		if (commentIdx !== -1) {
+			post.comments[commentIdx].comment = req.body.comment;
+			await post.save();
+			return res.status(200).json({
+				success: true,
+				message: "Comment updated",
+				post,
+			});
+		} else {
+			const postComment = {
+				user: req.user._id,
+				comment: req.body.comment,
+			};
+			post.comments.push(postComment);
+			await post.save();
+			return res.status(200).json({
+				success: true,
+				message: "Comment added",
+				post,
+			});
+		}
+
+	} catch (error) {
+		res.status(500).json({
+			status: false,
+			message: error.message
+		});
+	}
+};
+
+exports.removeComment = async (req, res) => {
+	try {
+
+		const post = await Post.findById(req.params.id);
+		if (!post) {
+			return res.status(404).json({
+				success: false,
+				message: "Post not found"
+			});
+		}
+
+		if (post.owner.toString() === req.user._id.toString()) {
+			if (req.body.commentId === undefined) {
+				return res.status(400).json({
+					success: false,
+					message: "Comment id not provided"
+				});
+			}
+			post.comments.forEach((item, index) => {
+				if (item._id.toString() === req.body.commentId.toString()) {
+					post.comments.splice(index, 1);
+					return;
+				}
+			});
+			await post.save();
+			return res.status(200).json({
+				success: true,
+				message: "Comment removed",
+			});
+		} else {
+			post.comments.forEach((item, index) => {
+				if (item.user.toString() === req.user._id.toString()) {
+					post.comments.splice(index, 1);
+					return;
+				}
+			});
+			await post.save();
+			return res.status(200).json({
+				success: true,
+				message: "Comment removed",
+			});
+		}
+
+	} catch (error) {
+		res.status(500).json({
+			status: false,
+			message: error.message
+		});
+	}
+};
