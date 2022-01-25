@@ -12,6 +12,8 @@ const {
 	getMyProfile,
 	getUserProfile,
 	getAllUsers,
+	forgotPassword,
+	resetPassword,
 } = require('../controllers/userCtrl.js');
 
 const { authenticatedUser } = require('../middlewares/authMiddleware.js');
@@ -35,5 +37,9 @@ router.route("/my/profile").get(authenticatedUser, getMyProfile);
 router.route("/profile/:id").get(authenticatedUser, getUserProfile);
 
 router.route("/all/profiles").get(authenticatedUser, getAllUsers);
+
+router.route("/forgot/password").post(forgotPassword);
+
+router.route("/password/reset/:token").put(resetPassword);
 
 module.exports = router;
