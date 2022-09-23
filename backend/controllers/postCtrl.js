@@ -1,14 +1,20 @@
 const Post = require('../schemas/postModel.js');
 const User = require('../schemas/userModel.js');
+const cloudinary = require("cloudinary");
 
 exports.createPost = async (req, res) => {
 	try {
+		const myCloud = await cloudinary.v2.uploader.upload(req.body.image, {
+			folder: "posts",
+		});
 
 		const newPost = {
 			caption: req.body.caption,
 			image: {
 				public_id: "req.body.public_id",
 				url: "req.body.url",
+				// public_id: myCloud.public_id,
+				// url: myCloud.secure_url,
 			},
 			owner: req.user._id,
 		};
@@ -152,11 +158,11 @@ exports.getPostsOfFollowing = async (req, res) => {
 			owner: {
 				$in: user.following
 			}
-		})
+		}).populate("owner likes comments.user");
 
 		res.status(200).json({
 			success: true,
-			posts,
+			posts: posts.reverse(),
 		});
 
 	} catch (error) {

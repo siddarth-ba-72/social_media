@@ -2,6 +2,7 @@ const User = require('../schemas/userModel.js');
 const Post = require('../schemas/postModel.js');
 const sendEmail = require('../middlewares/sendMail.js');
 const crypto = require('crypto');
+const cloudinary = require('cloudinary');
 
 exports.registerUser = async (req, res) => {
 	try {
@@ -10,6 +11,7 @@ exports.registerUser = async (req, res) => {
 			name,
 			email,
 			password,
+			// avatar
 		} = req.body;
 
 		let user = await User.findOne({ email });
@@ -20,13 +22,17 @@ exports.registerUser = async (req, res) => {
 			});
 		}
 
+		// const myCloud = await cloudinary.v2.uploader.upload(avatar, {
+		// 	folder: "avatars",
+		// });
+
 		user = await User.create({
 			name,
 			email,
 			password,
 			avatar: {
-				public_id: "req.body.public_id",
-				url: "req.body.url",
+				public_id: "myCloud.public_id",
+				url: "myCloud.secure_url",
 			}
 		});
 
@@ -195,13 +201,22 @@ exports.updateUserProfile = async (req, res) => {
 	try {
 
 		const user = await User.findById(req.user._id);
-		const { name, email } = req.body;
+		const { name, email, avatar } = req.body;
 
 		if (name) {
 			user.name = name;
 		}
 		if (email) {
 			user.email = email;
+		}
+
+		if (avatar) {
+			await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+			const myCloud = await cloudinary.v2.uploader.upload(avatar, {
+				folder: "avatars",
+			});
+			user.avatar.public_id = myCloud.public_id;
+			user.avatar.url = myCloud.secure_url;
 		}
 
 		await user.save();
@@ -229,6 +244,8 @@ exports.deleteMyAccount = async (req, res) => {
 		const following = user.following;
 		const userID = user._id;
 
+		await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
 		await user.remove();
 		res.cookie("token", null, {
 			httpOnly: true,
@@ -237,6 +254,7 @@ exports.deleteMyAccount = async (req, res) => {
 
 		for (let i = 0; i < posts.length; i++) {
 			const post = await Post.findById(posts[i]);
+			await cloudinary.v2.uploader.destroy(post.image.public_id);
 			await post.remove();
 		}
 
@@ -250,6 +268,28 @@ exports.deleteMyAccount = async (req, res) => {
 			const follows = await User.findById(following[i]);
 			follows.followers.pull(userID);
 			await follows.save();
+		}
+
+		const allPosts = await Post.find();
+
+		for (let i = 0; i < allPosts.length; i++) {
+			const post = await Post.findById(allPosts[i]._id);
+			for (let j = 0; j < post.comments.length; j++) {
+				if (post.comments[j].user === userID) {
+					post.comments.splice(j, 1);
+				}
+			}
+			await post.save();
+		}
+
+		for (let i = 0; i < allPosts.length; i++) {
+			const post = await Post.findById(allPosts[i]._id);
+			for (let j = 0; j < post.likes.length; j++) {
+				if (post.likes[j] === userID) {
+					post.likes.splice(j, 1);
+				}
+			}
+			await post.save();
 		}
 
 		res.status(200).json({
@@ -403,6 +443,54 @@ exports.resetPassword = async (req, res) => {
 		res.status(500).json({
 			success: false,
 			message: error.message
+		});
+	}
+};
+
+exports.getMyPosts = async (req, res) => {
+	try {
+		const user = await User.findById(req.user._id);
+		const posts = [];
+
+		for (let i = 0; i < user.posts.length; i++) {
+			const post = await Post.findById(user.posts[i]).populate(
+				"likes comments.user owner"
+			);
+			posts.push(post);
+		}
+
+		res.status(200).json({
+			success: true,
+			posts,
+		});
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: error.message,
+		});
+	}
+};
+
+exports.getUserPosts = async (req, res) => {
+	try {
+		const user = await User.findById(req.params.id);
+		const posts = [];
+
+		for (let i = 0; i < user.posts.length; i++) {
+			const post = await Post.findById(user.posts[i]).populate(
+				"likes comments.user owner"
+			);
+			posts.push(post);
+		}
+
+		res.status(200).json({
+			success: true,
+			posts,
+		});
+	} catch (error) {
+		res.status(500).json({
+			success: false,
+			message: error.message,
 		});
 	}
 };
